@@ -16,7 +16,12 @@ OUTPUT_PATH = "/output/entry.txt"
 
 
 def validate_entry(text: str) -> None:
-    """Reject anything that is not one clean line of 1-200 characters."""
+    """Reject anything that is not one clean line of 1-200 characters.
+
+    Also rejects C1 controls (U+0080-U+009F), the U+FFFD replacement
+    character (a sign of undecodable input), and lone surrogates
+    (U+D800-U+DFFF), which cannot round-trip through UTF-8.
+    """
     if not text or not text.strip():
         raise ValueError("entry is empty or whitespace-only")
     if len(text) > 200:
@@ -26,8 +31,13 @@ def validate_entry(text: str) -> None:
     if "\n" in text or "\r" in text:
         raise ValueError("entry contains a line break")
     for ch in text:
-        if ord(ch) < 0x20 or ord(ch) == 0x7F:
-            raise ValueError(f"entry contains a control character U+{ord(ch):04X}")
+        code = ord(ch)
+        if code < 0x20 or code == 0x7F or 0x80 <= code <= 0x9F:
+            raise ValueError(f"entry contains a control character U+{code:04X}")
+        if code == 0xFFFD:
+            raise ValueError("entry contains a replacement character U+FFFD")
+        if 0xD800 <= code <= 0xDFFF:
+            raise ValueError(f"entry contains a lone surrogate U+{code:04X}")
 
 
 def main() -> None:
